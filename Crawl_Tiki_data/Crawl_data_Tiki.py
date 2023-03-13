@@ -35,7 +35,7 @@ def connect_AWSRedshift():
 def Get_List_ID(url):     
     response=requests.get(url,headers=headers,params=params)
     if response.status_code == 200:
-        print(f'-------Crawl page successfully!!!--------')
+        print(f'-------Crawl page {url[-1]} successfully!!!--------')
     for record in response.json().get('data'):
         product_list.append(record.get('id'))
 
@@ -90,28 +90,30 @@ def Create_DataFrame():
     df_ProductDetail=pd.DataFrame(data=productDetail,columns=['Product ID','SKU','Option','Price'])
     df_Marketing=pd.DataFrame(data=Marketing,columns=['Product ID','Count review','Average score','Sold items'])
     
-    print('-------Crawl data successfully-------')
+    
     # Dataframe to Excel 
     df_MasterProduct.to_excel('Master Product.xlsx')
     df_ProductDetail.to_excel('Product Detail.xlsx')
     df_Marketing.to_excel('Marketing.xlsx')
+    print('-------Insert data to excel file successfully-------')
+    # #DataFrame to MySQL
+    # mysql_engine=connect_MySQL()
+    # df_MasterProduct.to_sql('master product',con=mysql_engine,if_exists='append',index=False)
+    # df_ProductDetail.to_sql('product detail',con=mysql_engine,if_exists='append',index=False)
+    # df_Marketing.to_sql('marketing',con=mysql_engine,if_exists='append',index=False)
+    # print('-------Insert data to MySQL successfully-------')
     
-    #DataFrame to MySQL
-    mysql_engine=connect_MySQL()
-    df_MasterProduct.to_sql('master product',con=mysql_engine,if_exists='append',index=False)
-    df_ProductDetail.to_sql('product detail',con=mysql_engine,if_exists='append',index=False)
-    df_Marketing.to_sql('marketing',con=mysql_engine,if_exists='append',index=False)
-    print('-------Insert data to MySQL successfully-------')
-    
-    #DataFrame to AWS Redshift
-    redshift_engine=connect_AWSRedshift()
-    df_MasterProduct.to_sql('master product',con=redshift_engine,if_exists='append',index=False)
-    df_ProductDetail.to_sql('product detail',con=redshift_engine,if_exists='append',index=False)
-    df_Marketing.to_sql('marketing',con=redshift_engine,if_exists='append',index=False)
-    print('-------Insert data to AWS Redshift successfully-------')
+    # #DataFrame to AWS Redshift
+    # redshift_engine=connect_AWSRedshift()
+    # df_MasterProduct.to_sql('master product',con=redshift_engine,if_exists='append',index=False)
+    # df_ProductDetail.to_sql('product detail',con=redshift_engine,if_exists='append',index=False)
+    # df_Marketing.to_sql('marketing',con=redshift_engine,if_exists='append',index=False)
+    # print('-------Insert data to AWS Redshift successfully-------')
     
     
 if __name__ == "__main__":
+    
+    start_time=time.perf_counter()
     
     headers={
     'user-agent':'Mozilla/5.0 (iPad; CPU OS 13_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/87.0.4280.77 Mobile/15E148 Safari/604.1',
@@ -129,7 +131,7 @@ if __name__ == "__main__":
     }
     urls=[]
     temp_url=f'https://tiki.vn/api/v2/products?limit=40&include=advertisement&aggregations=2&q=%C4%91i%E1%BB%87n+tho%E1%BA%A1i+samsung&page='
-    for i in range(1,4):
+    for i in range(1,5):
         url=temp_url+str(i)
         urls.append(url)
         
@@ -137,10 +139,12 @@ if __name__ == "__main__":
     masterProduct=[]
     productDetail=[]
     Marketing=[]
-    t1=time.time()
+    
     Get_Multi_Page()
     Get_Multi_Product()
     Create_DataFrame()
-    print('Executive time:',time.time()-t1)
+    
+    end_time=time.perf_counter()
+    print('Executive time:',end_time-start_time)
 
     
