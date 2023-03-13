@@ -6,31 +6,23 @@ from time import sleep
 import time
 from sqlalchemy import create_engine
 import concurrent.futures
+import configparser
 
 def connect_MySQL():
     #MySQL connection information
-    mysql_redshift={
-        'driver':'mysql+pymysql',
-        'username':'root',
-        'password':'',
-        'host':'localhost',
-        'database':'tiki'
-    }
-    mysql_engine=create_engine(f"{mysql_redshift['driver']}://{mysql_redshift['username']}:{mysql_redshift['password']}@{mysql_redshift['host']}/{mysql_redshift['database']}")
+    config=configparser.ConfigParser()
+    config.read('config.ini')
+    
+    mysql_engine=create_engine(f"{config['MySQL']['driver']}://{config['MySQL']['username']}:{config['MySQL']['password']}@{config['MySQL']['host']}/{config['MySQL']['database']}") 
     return mysql_engine
 
 def connect_AWSRedshift():
     #AWSRedshift connection information
-    redshift_config={
-        'driver':'redshift+psycopg2',
-        'username':'',
-        'password':'',
-        'host':'',
-        'port':5439,
-        'database':''
-    }
-    redshift_engine=create_engine(f"{redshift_config['driver']}://{redshift_config['username']}:{redshift_config['password']}@{redshift_config['host']}:{redshift_config['port']}/{redshift_config['database']}")
-    return redshift_engine
+    config=configparser.ConfigParser()
+    config.read('config.ini')
+  
+    AWSRedshift_engine=create_engine(f"{config['AWSRedshift']['driver']}://{config['AWSRedshift']['username']}:{config['AWSRedshift']['password']}@{config['AWSRedshift']['host']}:{config['AWSRedshift']['port']}/{config['AWSRedshift']['database']}")
+    return AWSRedshift_engine
 
 def Get_List_ID(url):     
     response=requests.get(url,headers=headers,params=params)
@@ -96,12 +88,12 @@ def Create_DataFrame():
     df_ProductDetail.to_excel('Product Detail.xlsx')
     df_Marketing.to_excel('Marketing.xlsx')
     print('-------Insert data to excel file successfully-------')
-    # #DataFrame to MySQL
-    # mysql_engine=connect_MySQL()
-    # df_MasterProduct.to_sql('master product',con=mysql_engine,if_exists='append',index=False)
-    # df_ProductDetail.to_sql('product detail',con=mysql_engine,if_exists='append',index=False)
-    # df_Marketing.to_sql('marketing',con=mysql_engine,if_exists='append',index=False)
-    # print('-------Insert data to MySQL successfully-------')
+    #DataFrame to MySQL
+    mysql_engine=connect_MySQL()
+    df_MasterProduct.to_sql('master product',con=mysql_engine,if_exists='append',index=False)
+    df_ProductDetail.to_sql('product detail',con=mysql_engine,if_exists='append',index=False)
+    df_Marketing.to_sql('marketing',con=mysql_engine,if_exists='append',index=False)
+    print('-------Insert data to MySQL successfully-------')
     
     # #DataFrame to AWS Redshift
     # redshift_engine=connect_AWSRedshift()
