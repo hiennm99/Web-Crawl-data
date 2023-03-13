@@ -5,6 +5,7 @@ import threading
 from time import sleep
 import time
 from sqlalchemy import create_engine
+import concurrent.futures
 
 def connect_MySQL():
     #MySQL connection information
@@ -31,62 +32,56 @@ def connect_AWSRedshift():
     redshift_engine=create_engine(f"{redshift_config['driver']}://{redshift_config['username']}:{redshift_config['password']}@{redshift_config['host']}:{redshift_config['port']}/{redshift_config['database']}")
     return redshift_engine
 
-def Get_List_ID(page):
-    params['pages']=page
-    response=requests.get('https://tiki.vn/api/v2/products',headers=headers,params=params)
+def Get_List_ID(url):     
+    response=requests.get(url,headers=headers,params=params)
     if response.status_code == 200:
-        print(f'-------Crawl page {page} successfully!!!--------')
+        print(f'-------Crawl page successfully!!!--------')
     for record in response.json().get('data'):
         product_list.append(record.get('id'))
-        
-def Get_List_productID():
-    threads=[]
-    for i in range(1,4):
-        t=threading.Thread(target=Get_List_ID,args=(i,))
-        threads.append(t)
-        
-    for thread in threads:
-        sleep(2)
-        thread.start()
+
+def Get_Multi_Page():   
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        executor.map(Get_List_ID,urls)
+
+def Get_Product_Information(id):
+    response=requests.get(f'https://tiki.vn/api/v2/products/{id}',headers=headers,params=params)
+    text=response.content
+    data=json.loads(text)
+
+    master_=[]
+    master_.append(data['id'])
+    master_.append(data['name'])
+    master_.append(data['categories']['name'])
+    master_.append(data['brand']['name'])
+    master_.append(data['current_seller']['id'])
+    master_.append(data['current_seller']['name'])
+    masterProduct.append(master_)
     
-def Get_Product_Information():
-    masterProduct=[]
-    productDetail=[]
-    Marketing=[]
-    for id in product_list:
-        response=requests.get(f'https://tiki.vn/api/v2/products/{id}',headers=headers,params=params)
-        text=response.content
-        data=json.loads(text)
+    for i in range(0,len(data['configurable_products'])):
+        detail_=[]
+        detail_.append(data['id'])
+        detail_.append(int(data['configurable_products'][i]['sku']))
+        detail_.append(data['configurable_products'][i]['option1'])
+        detail_.append(data['configurable_products'][i]['price'])
+        productDetail.append(detail_)
 
-        master_=[]
-        master_.append(data['id'])
-        master_.append(data['name'])
-        master_.append(data['categories']['name'])
-        master_.append(data['brand']['name'])
-        master_.append(data['current_seller']['id'])
-        master_.append(data['current_seller']['name'])
-        masterProduct.append(master_)
+    try: 
+        sold_item=data['all_time_quantity_sold']
+    except Exception as e:
+        sold_item=''
         
-        for i in range(0,len(data['configurable_products'])):
-            detail_=[]
-            detail_.append(data['id'])
-            detail_.append(int(data['configurable_products'][i]['sku']))
-            detail_.append(data['configurable_products'][i]['option1'])
-            detail_.append(data['configurable_products'][i]['price'])
-            productDetail.append(detail_)
+    marketing_=[]
+    marketing_.append(data['id'])
+    marketing_.append(data['review_count'])
+    marketing_.append(data['rating_average'])
+    marketing_.append(sold_item)
+    Marketing.append(marketing_)
 
-        try: 
-            sold_item=data['all_time_quantity_sold']
-        except Exception as e:
-            sold_item=''
-            
-        marketing_=[]
-        marketing_.append(data['id'])
-        marketing_.append(data['review_count'])
-        marketing_.append(data['rating_average'])
-        marketing_.append(sold_item)
-        Marketing.append(marketing_)
+def Get_Multi_Product():
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        executor.map(Get_Product_Information,product_list)
 
+def Create_DataFrame():
     if masterProduct is not None:
         if productDetail is not None and Marketing is not None:
             print('------Data is available-------')
@@ -97,9 +92,9 @@ def Get_Product_Information():
     
     print('-------Crawl data successfully-------')
     # Dataframe to Excel 
-    # df_MasterProduct.to_excel('Master Product.xlsx')
-    # df_ProductDetail.to_excel('Product Detail.xlsx')
-    # df_Marketing.to_excel('Marketing.xlsx')
+    df_MasterProduct.to_excel('Master Product.xlsx')
+    df_ProductDetail.to_excel('Product Detail.xlsx')
+    df_Marketing.to_excel('Marketing.xlsx')
     
     #DataFrame to MySQL
     mysql_engine=connect_MySQL()
@@ -126,18 +121,26 @@ if __name__ == "__main__":
     }
 
     params={
-        'limit': '15',
+        'limit': '40',
         'include': 'advertisement',
         'is_mweb': '1',
         'aggregations': '2',
         'q': 'điện thoại samsung',
-        'page':'1'
     }
-    
+    urls=[]
+    temp_url=f'https://tiki.vn/api/v2/products?limit=40&include=advertisement&aggregations=2&q=%C4%91i%E1%BB%87n+tho%E1%BA%A1i+samsung&page='
+    for i in range(1,4):
+        url=temp_url+str(i)
+        urls.append(url)
+        
     product_list=[]
+    masterProduct=[]
+    productDetail=[]
+    Marketing=[]
     t1=time.time()
-    Get_List_productID()
-    Get_Product_Information()
+    Get_Multi_Page()
+    Get_Multi_Product()
+    Create_DataFrame()
     print('Executive time:',time.time()-t1)
 
     
